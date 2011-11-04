@@ -43,6 +43,8 @@ handle(Req, #state{path = Path} = State) ->
     _ -> {ok, <<"">>, Req6}
   end,
   
+  % Trying to follow http://rack.rubyforge.org/doc/SPEC.html here
+  
   RackSession = [
     {<<"REQUEST_METHOD">>, atom_to_binary(RequestMethod, latin1)},
     {<<"SCRIPT_NAME">>, join(lists:sublist(ScriptName, length(ScriptName) - length(PathInfo)), <<"/">>)},
