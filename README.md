@@ -37,4 +37,8 @@ cowboy:start_listener(http, 1,
 )
 ```
   
-Launch you application
+Launch you application.
+
+Go to http://localhost:8080/ and you will see your started Rails app.
+
+Handler should reload application if config.ru mtime is changed, so it should be compatible with capistrano deploy.
