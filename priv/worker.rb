@@ -11,7 +11,7 @@ end
 require 'rack'
 
 
-def handle_request(app)
+def read_request
   env = {}
   
   size = STDIN.read(4)
@@ -49,6 +49,10 @@ def handle_request(app)
              })
 
   # $stderr.puts env.inspect
+  env
+end
+
+def handle_request(app, env)
 
   status, headers, body = app.call(env)
 
@@ -87,14 +91,21 @@ def load_app
   [app, last_mtime]
 end
 
-app, last_mtime = load_app
+app = nil
 
 loop do
+  env = read_request
+  
+  if !app
+    ENV["RAILS_RELATIVE_URL_ROOT"] = env["SCRIPT_NAME"]
+    app, last_mtime = load_app
+  end
+  
   # $stderr.puts "#{(File.mtime("config.ru") - last_mtime).inspect}\r"
   if File.mtime("config.ru") > last_mtime
     app, last_mtime = load_app
     # $stderr.puts "Reload app\r"
   end
-  handle_request(app)
+  handle_request(app, env)
 end
 
