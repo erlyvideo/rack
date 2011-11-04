@@ -2,6 +2,14 @@ Rack
 ====
 
 
+This is a library, that launched Ruby on Rails (or any other Rack application) behind Erlang HTTP server.
+
+All erlang cool features like Comet, WebSockets and session management are accessible to you now!
+
+
+Some details
+-----
+
 Rack for erlang is an application, that spawns several [rack](http://rack.rubyforge.org/) handlers and share requests between them.
 
 You can think about it as a replacement for Passenger.
