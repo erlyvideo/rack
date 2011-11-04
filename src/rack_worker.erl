@@ -49,7 +49,8 @@ init([Options]) ->
 
 restart_worker(#state{port = OldPort, path = Path} = State) ->
   (catch erlang:port_close(OldPort)),
-  Port = erlang:open_port({spawn, "./priv/worker.rb "++Path}, [use_stdio,binary,exit_status,{packet,4}]),
+  WorkerPath = code:lib_dir(rack, priv),
+  Port = erlang:open_port({spawn, WorkerPath++"/worker.rb "++Path}, [use_stdio,binary,exit_status,{packet,4}]),
   io:format("Start Rack worker at path ~s~n", [Path]),
   try_start_request(State#state{port = Port}).  
     
