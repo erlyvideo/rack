@@ -1,0 +1,16 @@
+#!/usr/bin/env escript
+
+
+main([RackPath]) ->
+  Root = filename:dirname(escript:script_name()),
+  code:add_pathz(Root ++ "/ebin"),
+  code:add_pathz(Root ++ "/../ebin"),
+  [code:add_pathz(Path) || Path <- filelib:wildcard(Root ++ "/deps/*/ebin")],
+  [code:add_pathz(Path) || Path <- filelib:wildcard(Root ++ "/../../*/ebin")],
+  example_rack:start(RackPath),
+  io:get_line("Example Rack launched\n");
+
+
+main([]) ->
+  io:format("Usage: ~s ~~/Sites/my_rails_app~n", [escript:script_name()]),
+  ok.

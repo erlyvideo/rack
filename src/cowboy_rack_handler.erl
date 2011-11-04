@@ -1,4 +1,4 @@
--module(rack_handler).
+-module(cowboy_rack_handler).
 -author('Max Lapshin <max@maxidoors.ru>').
 
 -export([init/3, handle/2, terminate/2]).

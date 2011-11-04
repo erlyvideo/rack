@@ -28,7 +28,7 @@ Add dispatch handler to cowboy:
 ```erlang
 Dispatch = [
 	{'_', [
-	  {['...'], rack_handler, [{path,"../my_rails_app"}]}
+	  {['...'], cowboy_rack_handler, [{path,"../my_rails_app"}]}
 	]}
 ],
 cowboy:start_listener(http, 1,
@@ -38,6 +38,15 @@ cowboy:start_listener(http, 1,
 ```
   
 Launch you application.
+
+If you don't understand, where to put these lines, than go to example-app subdirectory and run:
+
+```
+make
+run ~/Sites/my_rails_app
+```
+
+
 
 Go to http://localhost:8080/ and you will see your started Rails app.
 
