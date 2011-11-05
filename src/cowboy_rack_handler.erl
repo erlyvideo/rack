@@ -2,6 +2,7 @@
 -author('Max Lapshin <max@maxidoors.ru>').
 
 -export([init/3, handle/2, terminate/2]).
+-export([handle/3]).
 
 -record(state, {
   path
@@ -30,7 +31,16 @@ translate_headers(Headers) ->
     [{list_to_binary(Name), V}|Acc]
   end, [], Headers).
 
+handle(Req, _Env, Path) ->
+  handle(Req, Path).
+
+
+
 handle(Req, #state{path = Path} = State) ->
+  {ok, Req1} = handle(Req, Path),
+  {ok, Req1, State};
+  
+handle(Req, Path) when is_binary(Path) ->  
   {RequestMethod, Req1} = cowboy_http_req:method(Req),
   {ScriptName, Req2} = cowboy_http_req:path(Req1),
   {PathInfo, Req3} = cowboy_http_req:path_info(Req2),
@@ -57,8 +67,7 @@ handle(Req, #state{path = Path} = State) ->
   
   {ok, {Status, ReplyHeaders, ReplyBody}} = rack_worker:request(Path, RackSession, Body),  
   
-  {ok, Req8} = cowboy_http_req:reply(Status, ReplyHeaders, ReplyBody, Req7),
-  {ok, Req8, State}.
+  {ok, _Req8} = cowboy_http_req:reply(Status, ReplyHeaders, ReplyBody, Req7).
 
 
 terminate(_,_) ->
