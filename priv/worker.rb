@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 
 Dir.chdir(ARGV[0])
+
 require 'rubygems'
 
 if File.exists?("Gemfile")
@@ -92,17 +93,19 @@ def load_app
 end
 
 app = nil
+last_mtime = nil
 
 loop do
   env = read_request
   
-  if !app
+  if !app || !last_mtime
     ENV["RAILS_RELATIVE_URL_ROOT"] = env["SCRIPT_NAME"]
+    # $stderr.puts "Loading app\r"
     app, last_mtime = load_app
   end
   
-  # $stderr.puts "#{(File.mtime("config.ru") - last_mtime).inspect}\r"
-  if File.mtime("config.ru") > last_mtime
+  # $stderr.puts "mtime #{File.mtime("config.ru").inspect}, #{last_mtime.inspect}\r"
+  if !app || !last_mtime || File.mtime("config.ru") > last_mtime
     app, last_mtime = load_app
     # $stderr.puts "Reload app\r"
   end
