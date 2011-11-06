@@ -3,6 +3,7 @@
 Dir.chdir(ARGV[0])
 
 require 'rubygems'
+require 'stringio'
 
 if File.exists?("Gemfile")
   require 'bundler'
@@ -100,14 +101,14 @@ loop do
   
   if !app || !last_mtime
     ENV["RAILS_RELATIVE_URL_ROOT"] = env["SCRIPT_NAME"]
-    # $stderr.puts "Loading app\r"
     app, last_mtime = load_app
+    $stderr.puts "Loading app #{app.object_id}\r"
   end
   
-  # $stderr.puts "mtime #{File.mtime("config.ru").inspect}, #{last_mtime.inspect}\r"
+  $stderr.puts "mtime #{File.mtime("config.ru").inspect}, #{last_mtime.inspect}\r"
   if !app || !last_mtime || File.mtime("config.ru") > last_mtime
     app, last_mtime = load_app
-    # $stderr.puts "Reload app\r"
+    $stderr.puts "Reload app to #{app.object_id}\r"
   end
   handle_request(app, env)
 end

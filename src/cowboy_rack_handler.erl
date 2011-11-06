@@ -32,13 +32,20 @@ translate_headers(Headers) ->
   end, [], Headers).
 
 handle(Req, _Env, Path) ->
-  handle(Req, Path).
+  {ok, {Status, ReplyHeaders, ReplyBody}, Req1} = handle(Req, Path),
+  {ok, Req2} = cowboy_http_req:reply(Status, ReplyHeaders, ReplyBody, Req1),
+  {ok, Req2}.
 
 
 
 handle(Req, #state{path = Path} = State) ->
-  {ok, Req1} = handle(Req, Path),
-  {ok, Req1, State};
+  {ok, {Status, ReplyHeaders, ReplyBody}, Req1} = handle(Req, Path),
+  {ok, Req2} = cowboy_http_req:reply(Status, ReplyHeaders, ReplyBody, Req1),
+  {ok, Req2, State};
+
+handle(Req, Path) when is_list(Path) ->
+  handle(Req, list_to_binary(Path));
+
   
 handle(Req, Path) when is_binary(Path) ->  
   {RequestMethod, Req1} = cowboy_http_req:method(Req),
@@ -65,10 +72,9 @@ handle(Req, Path) when is_binary(Path) ->
     {<<"HTTP_HOST">>, <<(join(ServerName, "."))/binary, ":", (list_to_binary(integer_to_list(ServerPort)))/binary>>}
   ] ++ translate_headers(RequestHeaders),
   
-  {ok, {Status, ReplyHeaders, ReplyBody}} = rack_worker:request(Path, RackSession, Body),  
+  {ok, {Status, ReplyHeaders, ReplyBody}} = rack_worker:request(Path, RackSession, Body),
+  {ok, {Status, ReplyHeaders, ReplyBody}, Req7}.
   
-  {ok, _Req8} = cowboy_http_req:reply(Status, ReplyHeaders, ReplyBody, Req7).
-
 
 terminate(_,_) ->
   ok.
