@@ -1,7 +1,4 @@
 
 
-all: getdeps
-	rebar compile
-
-getdeps:
-	[ -d ../../cowboy ] || ../rebar get-deps
+all: 
+	[ -d ../../cowboy ] && erl -make || (../rebar get-deps && ../rebar compile)
