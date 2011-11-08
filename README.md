@@ -1,26 +1,24 @@
 Rack
 ====
 
+This is a library that allows running Ruby on Rails (or ever any Rack application) on top of Erlang HTTP servers.
 
-This is a library, that launched Ruby on Rails (or any other Rack application) behind Erlang HTTP server.
-
-All erlang cool features like Comet, WebSockets and session management are accessible to you now!
-
+All cool Erlang features like Comet, WebSockets and session management are accessible to you now!
 
 Some details
 -----
 
-Rack for erlang is an application, that spawns several [rack](http://rack.rubyforge.org/) handlers and share requests between them.
-
-You can think about it as a replacement for Passenger.
+Rack for Rrlang is an application that spawns several [rack](http://rack.rubyforge.org/) handlers and shares requests between them. You can think of it as a replacement for Passenger.
 
 Currently it is compatible with [Cowboy HTTP server](https://github.com/extend/cowboy).
 
-
+Prerequisites
+-------------
+Erlang/OTP R14 (erlang-base, erlang-eunit and erlang-dev packages for Ubuntu)
+GNU Make
 
 Quick start
 ----------
-
 
 Add rack dependency to rebar.conf:
 
@@ -29,7 +27,6 @@ Add rack dependency to rebar.conf:
 	{rack, ".*", {git, "git://github.com/erlyvideo/rack.git", "master"}}
 ]}
 ```
-
 
 Add dispatch handler to cowboy:
 
@@ -45,17 +42,15 @@ cowboy:start_listener(http, 1,
 )
 ```
   
-Launch you application.
+Launch your application.
 
-If you don't understand, where to put these lines, than go to example-app subdirectory and run:
+If you have no idea where to put these lines to then go to example-app subfolder and run:
 
 ```
 make
-run ~/Sites/my_rails_app
+./run ~/Sites/my_rails_app
 ```
 
-
-
-Go to http://localhost:8080/ and you will see your started Rails app.
+Navigate to http://localhost:8080/ and you will see your started Rails app.
 
 Handler should reload application if config.ru mtime is changed, so it should be compatible with capistrano deploy.
