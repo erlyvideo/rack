@@ -32,10 +32,14 @@ translate_headers(Headers) ->
   end, [], Headers).
 
 handle(Req, _Env, Path) ->
-  {ok, {Status, ReplyHeaders, ReplyBody}, Req1} = handle(Req, Path),
-  {ok, Req2} = cowboy_http_req:reply(Status, ReplyHeaders, ReplyBody, Req1),
-  {ok, Req2}.
-
+  case file:read_file_info(filename:join(Path, "config.ru")) of
+    {ok, _} ->
+      {ok, {Status, ReplyHeaders, ReplyBody}, Req1} = handle(Req, Path),
+      {ok, Req2} = cowboy_http_req:reply(Status, ReplyHeaders, ReplyBody, Req1),
+      {ok, Req2};
+    {error, _} ->
+      unhandled
+  end.
 
 
 handle(Req, #state{path = Path} = State) ->
