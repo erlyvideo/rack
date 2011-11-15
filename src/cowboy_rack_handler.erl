@@ -18,6 +18,7 @@
 
 -export([init/3, handle/2, terminate/2]).
 -export([handle/3]).
+-include("log.hrl").
 
 -record(state, {
   path
@@ -46,12 +47,19 @@ translate_headers(Headers) ->
     [{list_to_binary(Name), V}|Acc]
   end, [], Headers).
 
-handle(Req, _Env, Path) ->
+handle(Req, Env, Path) ->
   case file:read_file_info(filename:join(Path, "config.ru")) of
     {ok, _} ->
+      % ?D({rack_call,Env}),
       {ok, {Status, ReplyHeaders, ReplyBody}, Req1} = handle(Req, Path),
-      {ok, Req2} = cowboy_http_req:reply(Status, ReplyHeaders, ReplyBody, Req1),
-      {ok, Req2};
+      case proplists:get_value(<<"X-Accel-Redirect">>, ReplyHeaders) of
+        undefined ->
+          {ok, Req2} = cowboy_http_req:reply(Status, ReplyHeaders, ReplyBody, Req1),
+          {ok, Req2};
+        Redirect ->
+          % ?D({rack_redirect,Redirect}),
+          {unhandled, Req, lists:keystore(path, 1, Env, {path, Redirect})}
+      end;
     {error, _} ->
       unhandled
   end.
