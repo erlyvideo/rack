@@ -90,11 +90,12 @@ end
 def load_app
   app, options = Rack::Builder.parse_file("config.ru")
   last_mtime = File.mtime("config.ru")
+  app = app.call if app.respond_to?(:arity) && app.arity == 0
+
   [app, last_mtime]
 end
 
-app = nil
-last_mtime = nil
+app, last_mtime = load_app
 
 loop do
   env = read_request
@@ -112,4 +113,3 @@ loop do
   end
   handle_request(app, env)
 end
-
