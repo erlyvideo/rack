@@ -99,7 +99,7 @@ handle(Req, Path) when is_binary(Path) ->
     {<<"HTTP_HOST">>, <<(join(ServerName, "."))/binary, ":", (list_to_binary(integer_to_list(ServerPort)))/binary>>}
   ] ++ translate_headers(RequestHeaders),
   
-  {ok, {Status, ReplyHeaders, ReplyBody}} = rack_worker:request(Path, RackSession, Body),
+  {ok, {Status, ReplyHeaders, ReplyBody}} = rack:request(Path, RackSession, Body),
   {ok, {Status, ReplyHeaders, ReplyBody}, Req7}.
   
 

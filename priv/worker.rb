@@ -106,7 +106,6 @@ loop do
     $stderr.puts "Loading app #{app.object_id}\r"
   end
   
-  $stderr.puts "mtime #{File.mtime("config.ru").inspect}, #{last_mtime.inspect}\r"
   if !app || !last_mtime || File.mtime("config.ru") > last_mtime
     app, last_mtime = load_app
     $stderr.puts "Reload app to #{app.object_id}\r"

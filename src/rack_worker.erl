@@ -14,6 +14,7 @@
 
 -module(rack_worker).
 -author('Max Lapshin <max@maxidoors.ru>').
+-include("log.hrl").
 
 -export([start_link/0, start_link/1, request/3]).
 
@@ -33,73 +34,62 @@ request(Path, Headers, Body) when is_list(Path) ->
   request(Pid, Headers, Body);
 
 request(Pid, Headers, Body) when is_pid(Pid) ->
-  gen_server:call(Pid, {request, Headers, Body}, 30000).
+  gen_server:call(Pid, {request, Headers, Body}, 60000).
 
 
 -record(state, {
-  queue,
   port,
   timeout,
   timer,
+  from,
   options,
-  max_len,
-  path,
-  reply
+  path
 }).
 
 init([Options]) ->
   Path = proplists:get_value(path, Options, "./priv"),
-  Timeout = proplists:get_value(timeout, Options, 30000),
+  Timeout = proplists:get_value(timeout, Options, 60000),
 
   State = #state{
-    queue = queue:new(),
     path = Path,
     timeout = Timeout,
-    max_len = proplists:get_value(max_len, Options, 1000),
     options = Options
   },
 
-  {ok, restart_worker(State)}.
+  {ok, start_worker(State)}.
 
-restart_worker(#state{port = OldPort, path = Path} = State) ->
-  (catch erlang:port_close(OldPort)),
+start_worker(#state{path = Path} = State) ->
   WorkerPath = code:lib_dir(rack, priv),
   Port = erlang:open_port({spawn, WorkerPath++"/worker.rb "++Path}, [use_stdio,binary,exit_status,{packet,4}]),
-  io:format("Start Rack worker at path ~s~n", [Path]),
-  try_start_request(State#state{port = Port}).  
-    
+  io:format("Start Rack worker at path ~s (~p)~n", [Path, self()]),
+  State#state{port = Port}.
 
-handle_call({request, _H, _} = Request, From, #state{queue = Queue, max_len = MaxLen} = State) ->
-  case queue:len(Queue) of
-    Len when Len >= MaxLen ->
-      {reply, {error, busy}, State};
-    _ ->
-      State1 = try_start_request(State#state{queue = queue:in({Request, From}, Queue)}),
-      {noreply, State1}
-  end.
+handle_call({request, _H, _B} = Request, From, #state{from = undefined} = State) ->
+  {noreply, start_request(Request, From, State)};
 
-try_start_request(#state{reply = undefined, queue = Queue} = State) ->
-  case queue:out(Queue) of
-    {{value, Element}, Queue1} ->
-      start_request(Element, State#state{queue = Queue1});
-    {empty, _} ->
-      State
-  end;
+handle_call({request, _H, _B}, _From, State) ->
+  {reply, {error, busy}, State}.
 
-try_start_request(#state{} = State) ->
-  State.
 
-start_request({{request, Headers, Body}, From}, #state{port = Port, timeout = Timeout} = State) ->
+start_request({request, Headers, Body}, From, #state{port = Port, timeout = Timeout, from = undefined} = State) ->
   Packed = iolist_to_binary([<<(length(Headers)):32>>,[
     <<(size(Key)):32, Key/binary, (size(Value)):32, Value/binary>> || {Key, Value} <- Headers
   ], <<(size(Body)):32>>, Body]),
   port_command(Port, Packed),
   Timer = timer:send_after(Timeout, kill_request),
-  State#state{reply = From, timer = Timer}.
+  State#state{from = From, timer = Timer}.
+  
+ask_next_job(State, Manager) ->
+  case rack_manager:next_job(Manager) of
+    empty -> State;
+    {ok, {Request, From}} -> 
+      ?D({worker_pickup,self()}),
+      State1 = start_request(Request, From, State),
+      State1
+  end.
+  
 
-
-
-handle_info({Port, {data, Bin}}, #state{port = Port, reply = Reply, timer = Timer} = State) ->
+handle_info({Port, {data, Bin}}, #state{port = Port, from = From, timer = Timer, path = Path} = State) ->
   timer:cancel(Timer),
   <<Status:32, HeadersCount:32, Rest/binary>> = Bin,
   {Headers, BodyType, RawBody} = extract_headers(Rest, HeadersCount, []),
@@ -107,15 +97,20 @@ handle_info({Port, {data, Bin}}, #state{port = Port, reply = Reply, timer = Time
     file -> {ok, B} = file:read_file(binary_to_list(RawBody)), B;
     raw -> RawBody
   end,
-  gen_server:reply(Reply, {ok, {Status, Headers, Body}}),
-  {noreply, try_start_request(State#state{reply = undefined, timer = undefined})};
+  gen_server:reply(From, {ok, {Status, Headers, Body}}),
+  State1 = ask_next_job(State#state{from = undefined, timer = undefined}, rack:manager_id(Path)),
+  {noreply, State1};
 
-handle_info(kill_request, #state{reply = Reply} = State) ->
-  (catch gen_server:reply(Reply, {error, timeout})),
-  {noreply, restart_worker(State#state{reply = undefined, timer = undefined})};
+handle_info({has_new_job, Manager}, #state{from = undefined} = State) ->
+  {noreply, ask_next_job(State, Manager)};
+
+handle_info(kill_request, #state{from = From} = State) ->
+  (catch gen_server:reply(From, {error, timeout})),
+  ?D({timeout,self()}),
+  {stop, normal, State};
 
 handle_info({Port, {exit_status, _Status}}, #state{port = Port} = State) ->
-  {noreply, restart_worker(State)}.
+  {stop, normal, State}.
 
 
 extract_headers(<<BodyFlag, BodyLen:32, Body:BodyLen/binary>>, 0, Acc) ->
