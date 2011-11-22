@@ -34,7 +34,16 @@ request(Path, Headers, Body) when is_list(Path) ->
   request(Pid, Headers, Body);
 
 request(Pid, Headers, Body) when is_pid(Pid) ->
-  gen_server:call(Pid, {request, Headers, Body}, 60000).
+  try gen_server:call(Pid, {request, Headers, Body}, 60000) of
+    Reply -> Reply
+  catch
+    error:timeout ->
+      gen_server:call(Pid, {cancel_req, self()}),
+      {error, timeout};
+    _Class:Error ->
+      gen_server:call(Pid, {cancel_req, self()}),
+      {error, Error}
+  end.
 
 
 -record(state, {
@@ -83,7 +92,7 @@ ask_next_job(State, Manager) ->
   case rack_manager:next_job(Manager) of
     empty -> State;
     {ok, {Request, From}} -> 
-      ?D({worker_pickup,self()}),
+      % ?D({worker_pickup,self()}),
       State1 = start_request(Request, From, State),
       State1
   end.

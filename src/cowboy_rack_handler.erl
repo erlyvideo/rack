@@ -101,9 +101,14 @@ handle(Req, Path) when is_binary(Path) ->
   
   case rack:request(Path, RackSession, Body) of
     {ok, {_Status, _ReplyHeaders, _ReplyBody} = Reply} ->
+      ?D({_Status, RequestMethod, join(PathInfo, <<"/">>), iolist_size(_ReplyBody)}),
       {ok, Reply, Req7};
     {error, busy} ->
-      {ok, {503, [], <<"Backend overloaded\r\n">>}, Req7}
+      {ok, {503, [], <<"Backend overloaded\r\n">>}, Req7};
+    {error, timeout} ->
+      {ok, {504, [], <<"Backend timeout\r\n">>}, Req7};
+    {error, Error} ->
+      {ok, {500, [], iolist_to_binary(io_lib:format("Internal server error: ~p\r\n", [Error]))}, Req7}
   end.
 
 terminate(_,_) ->
