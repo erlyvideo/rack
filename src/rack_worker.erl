@@ -69,7 +69,7 @@ init([Options]) ->
 
 start_worker(#state{path = Path} = State) ->
   WorkerPath = code:lib_dir(rack, priv),
-  Port = erlang:open_port({spawn, WorkerPath++"/worker.rb "++Path}, [use_stdio,binary,exit_status,{packet,4}]),
+  Port = erlang:open_port({spawn, WorkerPath++"/worker.rb "++Path}, [nouse_stdio,binary,exit_status,{packet,4}]),
   io:format("Start Rack worker at path ~s (~p)~n", [Path, self()]),
   State#state{port = Port}.
 
@@ -116,10 +116,14 @@ handle_info({has_new_job, Manager}, #state{from = undefined} = State) ->
 handle_info({has_new_job, _}, #state{} = State) ->
   {noreply, State};
 
-handle_info(kill_request, #state{from = From} = State) ->
+handle_info(kill_request, #state{from = undefined} = State) ->
+  {noreply, State};
+
+handle_info(kill_request, #state{from = From} = State) when From =/= undefined ->
   (catch gen_server:reply(From, {error, timeout})),
   ?D({timeout,self()}),
   {stop, normal, State};
+
 
 handle_info({Port, {exit_status, _Status}}, #state{port = Port} = State) ->
   {stop, normal, State}.
@@ -134,6 +138,5 @@ extract_headers(<<BodyFlag, BodyLen:32, Body:BodyLen/binary>>, 0, Acc) ->
 
 extract_headers(<<KeyLen:32, Key:KeyLen/binary, ValueLen:32, Value:ValueLen/binary, Rest/binary>>, HeadersCount, Acc) ->
   extract_headers(Rest, HeadersCount - 1, [{Key, Value}|Acc]).
-
 
 terminate(_, _) -> ok.

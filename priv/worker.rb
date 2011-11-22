@@ -12,11 +12,13 @@ end
 
 require 'rack'
 
+INPUT = IO.new(3)
+OUTPUT = IO.new(4)
 
 def read_request
   env = {}
   
-  size = STDIN.read(4)
+  size = INPUT.read(4)
   
   if !size || size.size != 4
     exit(0)
@@ -24,19 +26,19 @@ def read_request
   
   size = size.unpack("N")[0]
   
-  count = STDIN.read(4).unpack("N")[0]
+  count = INPUT.read(4).unpack("N")[0]
 
   count.times do
-    len = STDIN.read(4).unpack("N")[0]
-    key = STDIN.read(len)
-    len = STDIN.read(4).unpack("N")[0]
-    value = STDIN.read(len)
+    len = INPUT.read(4).unpack("N")[0]
+    key = INPUT.read(len)
+    len = INPUT.read(4).unpack("N")[0]
+    value = INPUT.read(len)
     env[key] = value
   end
 
-  body_len = STDIN.read(4).unpack("N")[0]
+  body_len = INPUT.read(4).unpack("N")[0]
   
-  rack_input = StringIO.new(STDIN.read(body_len))
+  rack_input = StringIO.new(INPUT.read(body_len))
   rack_input.set_encoding(Encoding::BINARY) if rack_input.respond_to?(:set_encoding)
 
   env.update({"rack.version" => Rack::VERSION,
@@ -81,9 +83,9 @@ def handle_request(app, env)
            headers.map {|key,value| [key.size, key, value.to_s.size, value.to_s].pack("Na*Na*")}.join("") + 
            packed_body
   
-  STDOUT.write([packed.size].pack("N"))
-  STDOUT.write(packed)
-  STDOUT.flush
+  OUTPUT.write([packed.size].pack("N"))
+  OUTPUT.write(packed)
+  OUTPUT.flush
 end
 
 
