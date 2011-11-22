@@ -99,9 +99,12 @@ handle(Req, Path) when is_binary(Path) ->
     {<<"HTTP_HOST">>, <<(join(ServerName, "."))/binary, ":", (list_to_binary(integer_to_list(ServerPort)))/binary>>}
   ] ++ translate_headers(RequestHeaders),
   
-  {ok, {Status, ReplyHeaders, ReplyBody}} = rack:request(Path, RackSession, Body),
-  {ok, {Status, ReplyHeaders, ReplyBody}, Req7}.
-  
+  case rack:request(Path, RackSession, Body) of
+    {ok, {_Status, _ReplyHeaders, _ReplyBody} = Reply} ->
+      {ok, Reply, Req7};
+    {error, busy} ->
+      {ok, {503, [], <<"Backend overloaded\r\n">>}, Req7}
+  end.
 
 terminate(_,_) ->
   ok.

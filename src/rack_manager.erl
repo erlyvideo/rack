@@ -25,6 +25,7 @@ init([Options]) ->
   {ok, #queue{
     path = Path,
     requests = queue:new(),
+    max_len = proplists:get_value(max_len, Options, 30),
     working = []
   }}.
 
@@ -32,14 +33,18 @@ pids(Path) ->
   [Pid || {_, Pid, _, _} <- supervisor:which_children(rack:sup_id(Path)), Pid =/= self()].
   
 
-handle_call({request, _H, _B} = Request, From, #queue{requests = Requests, path = Path} = State) ->
-  % ?D({request, _H, From}),
-  Pids = pids(Path),
-  [Pid ! {has_new_job, self()} || Pid <- Pids],
-  {Client, _} = From,
-  erlang:monitor(process, Client),
-  ?D({queue, queue:len(Requests) + 1}),
-  {noreply, State#queue{requests = queue:in({Request,From}, Requests)}};
+handle_call({request, _H, _B} = Request, From, #queue{requests = Requests, path = Path, max_len = MaxLen} = State) ->
+  case queue:len(Requests) of
+    Len when Len >= MaxLen ->
+      {reply, {error, busy}, State};
+    _ ->  
+      Pids = pids(Path),
+      [Pid ! {has_new_job, self()} || Pid <- Pids],
+      {Client, _} = From,
+      erlang:monitor(process, Client),
+      ?D({queue, queue:len(Requests) + 1}),
+      {noreply, State#queue{requests = queue:in({Request,From}, Requests)}}
+  end;
 
 handle_call(next_job, _From, #queue{requests = Requests} = State) ->
   case queue:out(Requests) of
@@ -54,6 +59,7 @@ handle_info({'DOWN', _, _, Pid, _}, #queue{requests = Requests} = State) ->
     ({_R, {Client,_}}) when Client == Pid -> true;
     (_) -> false
   end, Requests),
+  ?D({remove_job,queue:len(Req1)}),
   {noreply, State#queue{requests = Req1}};
 
 handle_info(Msg, State) ->

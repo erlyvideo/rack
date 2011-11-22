@@ -104,6 +104,9 @@ handle_info({Port, {data, Bin}}, #state{port = Port, from = From, timer = Timer,
 handle_info({has_new_job, Manager}, #state{from = undefined} = State) ->
   {noreply, ask_next_job(State, Manager)};
 
+handle_info({has_new_job, _}, #state{} = State) ->
+  {noreply, State};
+
 handle_info(kill_request, #state{from = From} = State) ->
   (catch gen_server:reply(From, {error, timeout})),
   ?D({timeout,self()}),
