@@ -85,7 +85,7 @@ start_request({request, Headers, Body}, From, #state{port = Port, timeout = Time
     <<(size(Key)):32, Key/binary, (size(Value)):32, Value/binary>> || {Key, Value} <- Headers
   ], <<(size(Body)):32>>, Body]),
   port_command(Port, Packed),
-  Timer = timer:send_after(Timeout, kill_request),
+  {ok, Timer} = timer:send_after(Timeout, kill_request),
   State#state{from = From, timer = Timer}.
   
 ask_next_job(State, Manager) ->
@@ -99,7 +99,7 @@ ask_next_job(State, Manager) ->
   
 
 handle_info({Port, {data, Bin}}, #state{port = Port, from = From, timer = Timer, path = Path} = State) ->
-  timer:cancel(Timer),
+  {ok, cancel} = timer:cancel(Timer),
   <<Status:32, HeadersCount:32, Rest/binary>> = Bin,
   {Headers, BodyType, RawBody} = extract_headers(Rest, HeadersCount, []),
   Body = case BodyType of
