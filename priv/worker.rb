@@ -17,15 +17,15 @@ OUTPUT = IO.new(4)
 
 def read_request
   env = {}
-  
+
   size = INPUT.read(4)
-  
+
   if !size || size.size != 4
     exit(0)
   end
-  
+
   size = size.unpack("N")[0]
-  
+
   count = INPUT.read(4).unpack("N")[0]
 
   count.times do
@@ -37,7 +37,7 @@ def read_request
   end
 
   body_len = INPUT.read(4).unpack("N")[0]
-  
+
   rack_input = StringIO.new(INPUT.read(body_len))
   rack_input.set_encoding(Encoding::BINARY) if rack_input.respond_to?(:set_encoding)
 
@@ -61,28 +61,28 @@ def handle_request(app, env)
   status, headers, body = app.call(env)
 
   # $stderr.puts status.inspect, headers.inspect, body.inspect
-  
+
   packed_body = if body.respond_to?(:to_path) # file
     [1, body.to_path.size, body.to_path].pack("CNa*")
   else
     ary = []
-  
+
     body.each do |s|
       ary << s
     end
-  
+
     t = ary.join("")
-  
+
     [0, t.size, t].pack("CNa*")
   end
-  
-  body.close if body.respond_to?(:close)
-  
 
-  packed = [status, headers.length].pack("NN") + 
-           headers.map {|key,value| [key.size, key, value.to_s.size, value.to_s].pack("Na*Na*")}.join("") + 
+  body.close if body.respond_to?(:close)
+
+
+  packed = [status, headers.length].pack("NN") +
+           headers.map {|key,value| [key.size, key, value.to_s.size, value.to_s].pack("Na*Na*")}.join("") +
            packed_body
-  
+
   OUTPUT.write([packed.size].pack("N"))
   OUTPUT.write(packed)
   OUTPUT.flush
@@ -101,13 +101,13 @@ app, last_mtime = load_app
 
 loop do
   env = read_request
-  
+
   if !app || !last_mtime
     ENV["RAILS_RELATIVE_URL_ROOT"] = env["SCRIPT_NAME"]
     app, last_mtime = load_app
     $stderr.puts "Loading app #{app.object_id}\r"
   end
-  
+
   if !app || !last_mtime || File.mtime("config.ru") > last_mtime
     app, last_mtime = load_app
     $stderr.puts "Reload app to #{app.object_id}\r"
