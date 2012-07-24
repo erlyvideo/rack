@@ -72,8 +72,9 @@ def handle_request(app, env)
     end
   
     t = ary.join("")
+    packed_t = [t].pack('a*')
   
-    [0, t.size, t].pack("CNa*")
+    [0, packed_t.size].pack("CN") + packed_t
   end
   
   body.close if body.respond_to?(:close)
