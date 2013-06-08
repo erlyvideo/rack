@@ -52,7 +52,7 @@ def read_request
                "rack.url_scheme" => ["yes", "on", "1"].include?(ENV["HTTPS"]) ? "https" : "http"
              })
 
-  # $stderr.puts env.inspect
+  $stderr.puts env.inspect
   env
 end
 
@@ -60,7 +60,7 @@ def handle_request(app, env)
 
   status, headers, body = app.call(env)
 
-  # $stderr.puts status.inspect, headers.inspect, body.inspect
+  $stderr.puts status.inspect, headers.inspect, body.inspect
   
   packed_body = if body.respond_to?(:to_path) # file
     [1, body.to_path.size, body.to_path].pack("CNa*")
