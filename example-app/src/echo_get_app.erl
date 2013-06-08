@@ -11,9 +11,12 @@
 %% API.
 
 start(_Type, _Args) ->
+	% get rails app path
+	{ok, Path} = application:get_env(echo_get, rails_app_path),
+
 	Dispatch = cowboy_router:compile([
 		{'_', [
-			{"/", toppage_handler, []}
+			{"/", cowboy_rack_handler, [{path, Path}]}
 		]}
 	]),
 	{ok, _} = cowboy:start_http(http, 100, [{port, 8085}], [
