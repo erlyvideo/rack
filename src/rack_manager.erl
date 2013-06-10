@@ -25,7 +25,7 @@ init([Options]) ->
   {ok, #queue{
     path = Path,
     requests = queue:new(),
-    max_len = proplists:get_value(backlog, Options, 200),
+    max_len = proplists:get_value(backlog, Options, 2000),
     working = []
   }}.
 

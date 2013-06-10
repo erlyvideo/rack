@@ -115,7 +115,7 @@ handle(Req, Path) when is_binary(Path) ->
     {<<"HTTP_HOST">>, <<ServerName/binary, ":", (list_to_binary(integer_to_list(ServerPort)))/binary>>}%<<(join(ServerName, "."))/binary, ":", (list_to_binary(integer_to_list(ServerPort)))/binary>>}
   ] ++ translate_headers(RequestHeaders),
   
-  io:format("************************~nRACK:~n~p~n************************~n", [RackSession]),
+  % io:format("************************~nRACK:~n~p~n************************~n", [RackSession]),
 
   case rack:request(Path, RackSession, Body) of
     {ok, {_Status, _ReplyHeaders, _ReplyBody} = Reply} ->
