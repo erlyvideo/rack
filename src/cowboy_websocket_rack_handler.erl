@@ -41,7 +41,7 @@ websocket_init(_TransportName, Req, Options) ->
     {ok, Req, #state{path = Path}}.
  
 websocket_handle({text, Msg}, Req, #state{path = ServerPath} = State) ->
-	io:format("Message:~n~p~n~n", [Msg]),
+	%io:format("Message:~n~p~n~n", [Msg]),
 	ProtocolMessage = try parse_message(Msg)
 	catch 
 		_ -> message_parsing_error
@@ -59,12 +59,12 @@ websocket_handle({text, Msg}, Req, #state{path = ServerPath} = State) ->
 
 			{ok, {Status, Headers, Body}} = perform_rack_request(RequestMethod, Path, QueryString, ServerName, ServerPort, ServerPath),
 			RailsResponse = encode_rails_response(Status, Headers, Body),
-			io:format("Rails Response:~n~p~n~n", [RailsResponse]),
+			%io:format("Rails Response:~n~p~n~n", [RailsResponse]),
 			RailsResponse
 			%%% TODO: request to RACK
 	end,
 	WSResponse = encode_response(Response, ProtocolMessage),
-	io:format("Response:~n~p~n", [WSResponse]),
+	%io:format("Response:~n~p~n", [WSResponse]),
     {reply, {text, WSResponse}, Req, State};
 
 websocket_handle(_Data, Req, State) ->
@@ -165,7 +165,7 @@ perform_rack_request(RequestMethod, RequestPath, QueryString, ServerName, Server
   ++ 
   standard_http_headers(HttpHost),
   
-  io:format("************************~nRACK:~n~p~n************************~n", [RackSession]),
+  %io:format("************************~nRACK:~n~p~n************************~n", [RackSession]),
 
   %%% TODO: For POST we should think how to transfer body with JSON (see #ra_protocol_message.params)
   %%%		May be it should be Base64 body encoding.
