@@ -45,7 +45,7 @@ start_rack(Path) ->
   end,
   case erlang:whereis(sup_id(Path)) of
     undefined ->
-      start_rack(Path, [{workers, 10}]);
+      start_rack(Path, [{workers, 20}]);
     Pid ->
       {ok, Pid}
   end.  
