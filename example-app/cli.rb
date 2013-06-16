@@ -6,8 +6,8 @@
 require 'websocket-eventmachine-client'
 require 'json'
 
-@ws_host = '127.0.0.1'
-@ws_port = '8085'
+@ws_host = ARGV[0]
+@ws_port = ARGV[1].to_i
 
 EM.run do
     ws = WebSocket::EventMachine::Client.connect(:uri => "ws://#{@ws_host}:#{@ws_port}/ws")
@@ -21,8 +21,7 @@ EM.run do
             "ts"        => ts,
             "action"    => "main/index.json",
             "query_str" => "",
-            "method"    => "GET",
-            "params"    => {},
+            "method"    => "GET"
         }
 
         puts "Sending..."

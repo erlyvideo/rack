@@ -16,8 +16,8 @@ start(_Type, _Args) ->
 
 	Dispatch = cowboy_router:compile([
 		{'_', [
-			{"/ws", 	cowboy_websocket_rack_handler, 		[{path, Path}]},
-			{'_', 		cowboy_rack_handler, 				[{path, Path}]}
+			{"/ws", 	cowboy_websocket_rack_handler, 		[{path, Path}, {handler, echo_handler}]},
+			{'_', 		cowboy_rack_handler, 				[{path, Path}, {handler, echo_handler}]}
 		]}
 	]),
 	{ok, _} = cowboy:start_http(http, 100, [{port, 8085}], [
