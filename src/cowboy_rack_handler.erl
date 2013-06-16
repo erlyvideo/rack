@@ -28,13 +28,6 @@ init({_Transport, http}, Req, Options) ->
   Path = proplists:get_value(path, Options, "./priv"),
   {ok, Req, #state{path = Path}}.
 
-
-% join(Tokens, <<"/">>) ->
-%   iolist_to_binary([[<<"/">>, PT] || PT <- Tokens, PT =/= <<"..">> andalso PT =/= <<"">>]);
-
-% join(Tokens, Sep) ->
-%   iolist_to_binary(string:join([binary_to_list(PT) || PT <- Tokens, PT =/= <<"..">> andalso PT =/= <<"">>], Sep)).
-
 translate_headers(Headers) ->
   lists:foldl(fun
   ({'Host', _}, Acc) ->

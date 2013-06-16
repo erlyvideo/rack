@@ -9,62 +9,35 @@
 -export([websocket_terminate/3]).
 
 -record(state, {
-  	path
+  	path,
+  	handler
 }).
-
-%%% Application layer protocol
-
--record(ra_protocol_message, {
-	unique = <<"">>,
-	ts = 0,
-	action = <<"">>,
-	method = <<"GET">>,
-	query_str = <<"">>,
-	params = {struct, []},
-	response = <<"{}">>
-}).
-
-
-if_undefined_then_value(X, Value) ->
-	case X of 
-		undefined -> Value;
-		_ -> X
-	end.
 
 %%% Cowboy websocket behaviour methods
 
-init({tcp, http}, _Req, Options) ->
+init({tcp, http}, _Req, _Options) ->
   	{upgrade, protocol, cowboy_websocket}.
  
 websocket_init(_TransportName, Req, Options) ->
 	Path = proplists:get_value(path, Options, "./priv"),
-    {ok, Req, #state{path = Path}}.
+	Handler = proplists:get_value(handler, Options),
+    {ok, Req, #state{path = Path, handler = Handler}}.
  
-websocket_handle({text, Msg}, Req, #state{path = ServerPath} = State) ->
-	%io:format("Message:~n~p~n~n", [Msg]),
-	ProtocolMessage = try parse_message(Msg)
+websocket_handle({text, Msg}, Req, #state{path = ServerPath, handler = Handler} = State) ->
+	ProtocolMessage = try Handler:parse_message(Msg)
 	catch 
 		_ -> message_parsing_error
 	end, 
 
 	Response = case ProtocolMessage of
 		message_parsing_error ->
-			<<"{\"ws_error\": \"message_parsing_error\"}">>;
+			<<"{\"ws_error\": \"Protocol message parsing error\"}">>;
 		_ ->
-			RequestMethod = ProtocolMessage#ra_protocol_message.method,
-			Path = ProtocolMessage#ra_protocol_message.action,
-			QueryString = ProtocolMessage#ra_protocol_message.query_str,
-			ServerName = <<"localhost">>,
-			ServerPort = 8080,
-
+			{RequestMethod, Path, QueryString, ServerName, ServerPort} = Handler:request_info_for_message(ProtocolMessage),
 			{ok, {Status, Headers, Body}} = perform_rack_request(RequestMethod, Path, QueryString, ServerName, ServerPort, ServerPath),
-			RailsResponse = encode_rails_response(Status, Headers, Body),
-			%io:format("Rails Response:~n~p~n~n", [RailsResponse]),
-			RailsResponse
-			%%% TODO: request to RACK
+			Handler:encode_rack_response(Status, Headers, Body)
 	end,
-	WSResponse = encode_response(Response, ProtocolMessage),
-	%io:format("Response:~n~p~n", [WSResponse]),
+	WSResponse = Handler:encode_transport_response(Response, ProtocolMessage),
     {reply, {text, WSResponse}, Req, State};
 
 websocket_handle(_Data, Req, State) ->
@@ -78,65 +51,6 @@ websocket_info(_Info, Req, State) ->
 
 websocket_terminate(_Reason, _Req, _State) ->
     ok.
-
-%%% Helper methods
-
-parse_message(Message) ->
-	{struct, PropList} = mochijson2:decode(Message),
-
-	% extract parameters
-	Unique 	= if_undefined_then_value(proplists:get_value(<<"unique">>, PropList), <<"">>),
-	Ts 		= if_undefined_then_value(proplists:get_value(<<"ts">>, 	PropList), 0),
-	Action 	= if_undefined_then_value(proplists:get_value(<<"action">>, PropList), <<"">>),
-	Query 	= if_undefined_then_value(proplists:get_value(<<"query_str">>, PropList), <<"">>),
-	Method 	= if_undefined_then_value(proplists:get_value(<<"method">>, PropList), <<"GET">>),
-	Params 	= if_undefined_then_value(proplists:get_value(<<"params">>, PropList), {struct, []}),
-
-	% create result message
-	#ra_protocol_message{
-		unique = Unique, 
-		ts = Ts,
-		action = Action,
-		query_str = Query,
-		method = Method,
-		params = Params
-	}.
-
-encode_response(Response, Message) ->
-	Unique 	= Message#ra_protocol_message.unique,
-	Ts 		= list_to_binary(integer_to_list(Message#ra_protocol_message.ts)),
-	Action 	= Message#ra_protocol_message.action,
-	Query 	= Message#ra_protocol_message.query_str,
-	Method 	= Message#ra_protocol_message.method,
-	Params 	= mochijson2:encode(Message#ra_protocol_message.params),
-
-	UniquePart 		= 	<<"\"unique\":", 	"\"", Unique/binary, "\"">>,
-	TsPart 			= 	<<"\"ts\":", 		Ts/binary>>,
-	ActionPart 		= 	<<"\"action\":", 	"\"", Action/binary, "\"">>,
-	QueryPart 		= 	<<"\"query_str\":", 	"\"", Query/binary, "\"">>,
-	MethodPart 		= 	<<"\"method\":", 	"\"", Method/binary, "\"">>,
-	ParamsPart 		= 	<<"\"params\":", 	Params/binary>>,
-	ResponsePart	= 	<<"\"response\":", 	Response/binary>>,
-
-	_Result = <<"{", 
-		UniquePart/binary, ",",
-		TsPart/binary, ",",
-		ActionPart/binary, ",",
-		QueryPart/binary, ",",
-		MethodPart/binary, ",",
-		ParamsPart/binary, ",",
-		ResponsePart/binary,
-	"}">>.
-	
-encode_rails_response(Status, ResponseHeaders, ResponseBody) ->
-	StatusValue = list_to_binary(integer_to_list(Status)),
-	ResponseHeadersValue = ResponseHeaders,
-	ResponseBodyValue = ResponseBody,
-	<<"{",
-		"\"status\":",  StatusValue/binary, ",",
-		% "\"headers\":\"",  ResponseHeadersValue/binary, "\",",
-		"\"body\":",  ResponseBodyValue/binary,
-	"}">>.
 
 %%% RACK helpers
 
@@ -154,26 +68,23 @@ standard_http_headers(HttpHost) ->
 perform_rack_request(RequestMethod, RequestPath, QueryString, ServerName, ServerPort, ServerPath) ->
   HttpHost = <<ServerName/binary, ":", (list_to_binary(integer_to_list(ServerPort)))/binary>>,
   RackSession = [
-    {<<"REQUEST_METHOD">>, RequestMethod},%atom_to_binary(RequestMethod, latin1)},
-    {<<"SCRIPT_NAME">>, <<"">>}, %join(lists:sublist(ScriptName, length(ScriptName) - length(PathInfo)), <<"/">>)},
-    {<<"PATH_INFO">>, RequestPath}, %join(PathInfo, <<"/">>)},
+    {<<"REQUEST_METHOD">>, RequestMethod},
+    {<<"SCRIPT_NAME">>, <<"">>}, 
+    {<<"PATH_INFO">>, RequestPath},
     {<<"QUERY_STRING">>, QueryString},
-    {<<"SERVER_NAME">>, ServerName}, %join(ServerName, ".")},
+    {<<"SERVER_NAME">>, ServerName},
     {<<"SERVER_PORT">>, list_to_binary(integer_to_list(ServerPort))},
-    {<<"HTTP_HOST">>, HttpHost}%<<(join(ServerName, "."))/binary, ":", (list_to_binary(integer_to_list(ServerPort)))/binary>>}
+    {<<"HTTP_HOST">>, HttpHost}
   ] 
   ++ 
   standard_http_headers(HttpHost),
   
-  %io:format("************************~nRACK:~n~p~n************************~n", [RackSession]),
-
   %%% TODO: For POST we should think how to transfer body with JSON (see #ra_protocol_message.params)
   %%%		May be it should be Base64 body encoding.
   Body = <<"">>,
 
-  Response = case rack:request(ServerPath, RackSession, Body) of
+  case rack:request(ServerPath, RackSession, Body) of
     {ok, {_Status, _ReplyHeaders, _ReplyBody} = Reply} ->
-      % ?D({_Status, RequestMethod, join(PathInfo, <<"/">>), iolist_size(_ReplyBody)}),
       {ok, Reply};
     {error, busy} ->
       {ok, {503, [], <<"{\"error\":\"Backend overloaded\"}">>}};
