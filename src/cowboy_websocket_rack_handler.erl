@@ -30,11 +30,9 @@
 %%% Gen_event behaviour methods
 
 init([State]) ->
-  io:format("~n~n~n~n~nINIT HANDLER~n~p~n~n~n~n", [State]),
   {ok, State}.
 
 handle_event(reconnect, #state{ws_handler_pid = WSHandlerPid} = State) ->
-  io:format("~n~n~n~n~nRECONNECT: ~p~n~n~n~n~n", [self()]),
   WSHandlerPid ! reconnect,
   {ok, State}.
  
@@ -64,7 +62,6 @@ websocket_init(_TransportName, Req, Options) ->
   case EventManager of
     undefined -> ok;
     _ -> 
-      io:format("~n~n~n~n~n~nADD HANDLER~n~n~n~n~n~n~n"),
       gen_event:add_handler({global, EventManager}, {?MODULE, self()}, [State])
   end,
   {ok, Req, State}.
@@ -93,7 +90,6 @@ websocket_info({timeout, _Ref, Msg}, Req, State) ->
 	{reply, {text, Msg}, Req, State};
 
 websocket_info(reconnect, Req, #state{path = _ServerPath, handler = Handler} = State) ->
-  io:format("Websocket handler info: 'reconnect'...~n"),
   ReconnectMessage = Handler:handle_reconnect(State),
   {reply, {text, ReconnectMessage}, Req, State};
 
