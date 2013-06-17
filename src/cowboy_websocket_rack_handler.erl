@@ -1,27 +1,73 @@
 -module(cowboy_websocket_rack_handler).
 -author('Konstantin Kiselyov <kiseljovkn@gmail.com>').
--behaviour(cowboy_websocket_handler).
 
+-behaviour(cowboy_websocket_handler).
+-behaviour(gen_event).
+
+%%% cowboy_websocket_handler behaviour
 -export([init/3]).
 -export([websocket_init/3]).
 -export([websocket_handle/3]).
 -export([websocket_info/3]).
 -export([websocket_terminate/3]).
 
+%%% gen_event behaviour
+-export([
+  init/1,
+  handle_event/2,
+  terminate/2,
+  code_change/3,
+  handle_info/2,
+  handle_call/2
+]).
+
 -record(state, {
   	path,
-  	handler
+  	handler,
+    ws_handler_pid
 }).
+
+%%% Gen_event behaviour methods
+
+init([State]) ->
+  io:format("~n~n~n~n~nINIT HANDLER~n~p~n~n~n~n", [State]),
+  {ok, State}.
+
+handle_event(reconnect, #state{ws_handler_pid = WSHandlerPid} = State) ->
+  io:format("~n~n~n~n~nRECONNECT: ~p~n~n~n~n~n", [self()]),
+  WSHandlerPid ! reconnect,
+  {ok, State}.
+ 
+handle_info(_Msg, State) ->
+  {ok, State}.
+
+handle_call(_Msg, State) ->
+  {noreply, State}.
+
+code_change(_OldVsn, State, _Extra) ->
+  {ok, State}.
+
+terminate(_Args, _State) ->
+  ok.
 
 %%% Cowboy websocket behaviour methods
 
 init({tcp, http}, _Req, _Options) ->
-  	{upgrade, protocol, cowboy_websocket}.
- 
+  {upgrade, protocol, cowboy_websocket}.
+
 websocket_init(_TransportName, Req, Options) ->
 	Path = proplists:get_value(path, Options, "./priv"),
 	Handler = proplists:get_value(handler, Options),
-    {ok, Req, #state{path = Path, handler = Handler}}.
+  EventManager = proplists:get_value(event_manager, Options, undefined),
+  State = #state{path = Path, handler = Handler, ws_handler_pid = self()},
+  
+  case EventManager of
+    undefined -> ok;
+    _ -> 
+      io:format("~n~n~n~n~n~nADD HANDLER~n~n~n~n~n~n~n"),
+      gen_event:add_handler({global, EventManager}, {?MODULE, self()}, [State])
+  end,
+  {ok, Req, State}.
  
 websocket_handle({text, Msg}, Req, #state{path = ServerPath, handler = Handler} = State) ->
 	ProtocolMessage = try Handler:parse_message(Msg)
@@ -45,6 +91,11 @@ websocket_handle(_Data, Req, State) ->
  
 websocket_info({timeout, _Ref, Msg}, Req, State) ->
 	{reply, {text, Msg}, Req, State};
+
+websocket_info(reconnect, Req, #state{path = _ServerPath, handler = Handler} = State) ->
+  io:format("Websocket handler info: 'reconnect'...~n"),
+  ReconnectMessage = Handler:handle_reconnect(State),
+  {reply, {text, ReconnectMessage}, Req, State};
 
 websocket_info(_Info, Req, State) ->
 	{ok, Req, State}.

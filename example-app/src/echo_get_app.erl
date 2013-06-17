@@ -14,9 +14,12 @@ start(_Type, _Args) ->
 	% get rails app path
 	{ok, Path} = application:get_env(echo_get, rails_app_path),
 
+	% start event manager
+	echo_event_manager:start(),
+
 	Dispatch = cowboy_router:compile([
 		{'_', [
-			{"/ws", 	cowboy_websocket_rack_handler, 		[{path, Path}, {handler, echo_handler}]},
+			{"/ws", 	cowboy_websocket_rack_handler, 		[{path, Path}, {handler, echo_handler}, {event_manager, echo_event_manager}]},
 			{'_', 		cowboy_rack_handler, 				[{path, Path}, {handler, echo_handler}]}
 		]}
 	]),

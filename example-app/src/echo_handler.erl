@@ -5,7 +5,8 @@
 	parse_message/1,
 	request_info_for_message/1,
 	encode_transport_response/2,
-	encode_rack_response/3
+	encode_rack_response/3,
+	handle_reconnect/1
 ]).
 
 %%% Application layer protocol
@@ -91,3 +92,5 @@ encode_rack_response(Status, ResponseHeaders, ResponseBody) ->
 		"\"body\":",  ResponseBodyValue/binary,
 	"}">>.
 
+handle_reconnect(_State) ->
+	<<"{\"action\": \"reconnect\"}">>.
