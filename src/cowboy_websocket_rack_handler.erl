@@ -24,7 +24,8 @@
 -record(state, {
   	path,
   	handler,
-    ws_handler_pid
+    ws_handler_pid,
+    ws_handler_state
 }).
 
 %%% Gen_event behaviour methods
@@ -53,12 +54,15 @@ terminate(_Args, _State) ->
 init({tcp, http}, _Req, _Options) ->
   {upgrade, protocol, cowboy_websocket}.
 
-websocket_init(_TransportName, Req, Options) ->
+websocket_init(TransportName, Req, Options) ->
 	Path = proplists:get_value(path, Options, "./priv"),
 	Handler = proplists:get_value(handler, Options),
   EventManager = proplists:get_value(event_manager, Options, undefined),
-  State = #state{path = Path, handler = Handler, ws_handler_pid = self()},
   
+  % on connect handler call
+  HandlerState = Handler:on_connect(TransportName, Req, Options),
+
+  State = #state{path = Path, handler = Handler, ws_handler_pid = self(), ws_handler_state = HandlerState},
   case EventManager of
     undefined -> ok;
     _ -> 
@@ -66,8 +70,8 @@ websocket_init(_TransportName, Req, Options) ->
   end,
   {ok, Req, State}.
  
-websocket_handle({text, Msg}, Req, #state{path = ServerPath, handler = Handler} = State) ->
-	ProtocolMessage = try Handler:parse_message(Msg)
+websocket_handle({text, Msg}, Req, #state{path = ServerPath, handler = Handler, ws_handler_state = HandlerState} = State) ->
+	ProtocolMessage = try Handler:parse_message(Msg, HandlerState)
 	catch 
 		_ -> message_parsing_error
 	end, 
@@ -76,11 +80,11 @@ websocket_handle({text, Msg}, Req, #state{path = ServerPath, handler = Handler} 
 		message_parsing_error ->
 			<<"{\"ws_error\": \"Protocol message parsing error\"}">>;
 		_ ->
-			{RequestMethod, Path, QueryString, ServerName, ServerPort} = Handler:request_info_for_message(ProtocolMessage),
+			{RequestMethod, Path, QueryString, ServerName, ServerPort} = Handler:request_info_for_message(ProtocolMessage, HandlerState),
 			{ok, {Status, Headers, Body}} = perform_rack_request(RequestMethod, Path, QueryString, ServerName, ServerPort, ServerPath),
-			Handler:encode_rack_response(Status, Headers, Body)
+			Handler:encode_rack_response(Status, Headers, Body, HandlerState)
 	end,
-	WSResponse = Handler:encode_transport_response(Response, ProtocolMessage),
+	WSResponse = Handler:encode_transport_response(Response, ProtocolMessage, HandlerState),
     {reply, {text, WSResponse}, Req, State};
 
 websocket_handle(_Data, Req, State) ->
@@ -89,8 +93,8 @@ websocket_handle(_Data, Req, State) ->
 websocket_info({timeout, _Ref, Msg}, Req, State) ->
 	{reply, {text, Msg}, Req, State};
 
-websocket_info(reconnect, Req, #state{path = _ServerPath, handler = Handler} = State) ->
-  ReconnectMessage = Handler:handle_reconnect(State),
+websocket_info(reconnect, Req, #state{path = _ServerPath, handler = Handler, ws_handler_state = HandlerState} = State) ->
+  ReconnectMessage = Handler:handle_reconnect(State, HandlerState),
   {reply, {text, ReconnectMessage}, Req, State};
 
 websocket_info(_Info, Req, State) ->
