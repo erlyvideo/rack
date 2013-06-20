@@ -100,8 +100,9 @@ websocket_info(reconnect, Req, #state{path = _ServerPath, handler = Handler, ws_
 websocket_info(_Info, Req, State) ->
 	{ok, Req, State}.
 
-websocket_terminate(_Reason, _Req, _State) ->
-    ok.
+websocket_terminate(_Reason, _Req, #state{handler = Handler, ws_handler_state = HandlerState} = _State) ->
+  Handler:on_disconnect(HandlerState),
+  ok.
 
 %%% RACK helpers
 
