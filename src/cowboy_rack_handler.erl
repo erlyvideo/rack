@@ -110,6 +110,8 @@ handle(Req, Path) when is_binary(Path) ->
   
   % io:format("************************~nRACK:~n~p~n************************~n", [RackSession]),
 
+  io:format("~n================~nREQUEST:~n==================Path:~n~p~nSession:~n~p~nBody:~n~p~n~n~n~n~n", [Path, RackSession, Body]),
+
   case rack:request(Path, RackSession, Body) of
     {ok, {_Status, _ReplyHeaders, _ReplyBody} = Reply} ->
       % ?D({_Status, RequestMethod, join(PathInfo, <<"/">>), iolist_size(_ReplyBody)}),

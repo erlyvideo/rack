@@ -45,7 +45,7 @@ start_rack(Path) ->
   end,
   case erlang:whereis(sup_id(Path)) of
     undefined ->
-      start_rack(Path, [{workers, 20}]);
+      start_rack(Path, [{workers, 4}]);
     Pid ->
       {ok, Pid}
   end.  
@@ -65,6 +65,9 @@ start_rack(Path, Options) when is_binary(Path) ->
 start_rack(Path, Options) when is_list(Path) ->
   SupId = sup_id(Path),
   Workers = proplists:get_value(workers, Options, 1),
+
+  RackOptions = application:get_env(rack, rack_options), %[{rack_env, "development"}],
+
   supervisor:start_child(rack_sup, {
     SupId,
     {supervisor, start_link, [{local, SupId}, rack_sup, [rack_worker_pool_sup]]},
@@ -77,21 +80,22 @@ start_rack(Path, Options) when is_list(Path) ->
     SubId = worker_id(Path, N),
     supervisor:start_child(SupId, {
       SubId,
-      {rack_worker, start_link, [[{path, Path}]]},
+      {rack_worker, start_link, [[{path, Path}, {rack_options, RackOptions}]]},
       permanent,
       1000,
       worker,
       [rack_worker]
     })
   end, lists:seq(1,Workers)),
-  supervisor:start_child(SupId, {
+  Res = supervisor:start_child(SupId, {
     manager_id(Path),
     {rack_manager, start_link, [[{process_id, manager_id(Path)},{path,Path}]]},
     permanent,
     1000,
     worker,
     [rack_manager]
-  }).
+  }),
+  io:format("START MANAGER:~n~p~n~n", [Res]).
 
 
 
