@@ -92,7 +92,7 @@ handle(Req, Path) when is_binary(Path) ->
   {ServerPort, Req6} = cowboy_req:port(Req5),
   {RequestHeaders, _} = cowboy_req:headers(Req6),
   {ok, Body, Req7} = case RequestMethod of
-    'POST' -> cowboy_req:body(Req6);
+    <<"POST">> -> cowboy_req:body(Req6);
     _ -> {ok, <<"">>, Req6}
   end,
   
