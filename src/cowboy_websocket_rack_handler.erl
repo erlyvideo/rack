@@ -68,7 +68,7 @@ websocket_init(TransportName, Req, Options) ->
     _ -> 
       gen_event:add_handler({global, EventManager}, {?MODULE, self()}, [State])
   end,
-  {ok, Req, State}.
+  {ok, Req, State, 20000}.
  
 websocket_handle({text, Msg}, Req, #state{path = ServerPath, handler = Handler, ws_handler_state = HandlerState} = State) ->
 	ProtocolMessage = try Handler:parse_message(Msg, HandlerState)
