@@ -63,7 +63,7 @@ def handle_request(app, env)
   $stderr.puts status.inspect, headers.inspect, body.inspect
   
   packed_body = if body.respond_to?(:to_path) # file
-    [1, body.to_path.size, body.to_path].pack("CNa*")
+    [1, body.to_path.bytesize, body.to_path].pack("CNa*")
   else
     ary = []
   
@@ -73,17 +73,17 @@ def handle_request(app, env)
   
     t = ary.join("")
   
-    [0, t.size, t].pack("CNa*")
+    [0, t.bytesize, t].pack("CNa*")
   end
   
   body.close if body.respond_to?(:close)
   
 
   packed = [status, headers.length].pack("NN") + 
-           headers.map {|key,value| [key.size, key, value.to_s.size, value.to_s].pack("Na*Na*")}.join("") + 
+           headers.map {|key,value| [key.bytesize, key, value.to_s.bytesize, value.to_s].pack("Na*Na*")}.join("") + 
            packed_body
   
-  OUTPUT.write([packed.size].pack("N"))
+  OUTPUT.write([packed.bytesize].pack("N"))
   OUTPUT.write(packed)
   OUTPUT.flush
 end
