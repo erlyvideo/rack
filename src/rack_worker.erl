@@ -26,6 +26,10 @@ start_link() ->
 start_link(Options) ->
   gen_server:start_link(?MODULE, [Options], []).
 
+% request(Path, Headers, Body) ->
+%   io:format("~n~nWORKER:~nPath = ~p~nHeaders:~n~p~n~nBody = ~p~n~n~n", [Path, Headers, Body]),
+%   {error, busy}.
+
 request(Path, Headers, Body) when is_binary(Path) ->
   request(binary_to_list(Path), Headers, Body);
 
@@ -58,6 +62,7 @@ request(Pid, Headers, Body) when is_pid(Pid) ->
 init([Options]) ->
   Path = proplists:get_value(path, Options, "./priv"),
   Timeout = proplists:get_value(timeout, Options, 60000),
+  {ok, RackOptions} = proplists:get_value(rack_options, Options, []),
 
   State = #state{
     path = Path,
@@ -65,12 +70,25 @@ init([Options]) ->
     options = Options
   },
 
-  {ok, start_worker(State)}.
+  {ok, start_worker(State, RackOptions)}.
 
-start_worker(#state{path = Path} = State) ->
+start_worker(#state{path = Path} = State, RackOptions) ->
   WorkerPath = code:lib_dir(rack, priv),
-  Port = erlang:open_port({spawn, WorkerPath++"/worker.rb "++Path}, [nouse_stdio,binary,exit_status,{packet,4}]),
-  io:format("Start Rack worker at path ~s (~p)~n", [Path, self()]),
+  Cmd = WorkerPath++"/worker.rb "++Path,
+
+  % RackEnv = proplists:get_value(rack_env, RackOptions, "production"), 
+  
+  % Env = [
+  %   {"RACK_ENV", RackEnv}
+  % ],
+  Port = erlang:open_port({spawn, Cmd}, [
+    nouse_stdio,
+    binary,
+    exit_status,
+    {packet,4},
+    {env, RackOptions}
+  ]),
+  io:format("Start Rack worker with '~s', PID(~p)~n~p~n~n", [Cmd, self(), RackOptions]),
   State#state{port = Port}.
 
 handle_call({request, _H, _B} = Request, From, #state{from = undefined} = State) ->
