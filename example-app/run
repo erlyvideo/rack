@@ -7,7 +7,7 @@ main([RackPath]) ->
   code:add_pathz(Root ++ "/../ebin"),
   [code:add_pathz(Path) || Path <- filelib:wildcard(Root ++ "/deps/*/ebin")],
   [code:add_pathz(Path) || Path <- filelib:wildcard(Root ++ "/../../*/ebin")],
-  example_rack:start(RackPath),
+  echo_get:start(RackPath),
   io:get_line("Example Rack launched\n");
 
 
